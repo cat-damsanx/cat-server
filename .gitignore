@@ -131,3 +131,6 @@ dmypy.json
 # data
 *.json
 question_data.csv
+
+# note
+todo.txt
