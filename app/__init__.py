@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_cors import CORS
 from pymongo import MongoClient
@@ -7,8 +8,7 @@ from firebase_admin import storage
 
 app = Flask(__name__)
 cors = CORS(app)
-
-client = MongoClient('mongodb://tuan.nva:data-tuan.nva@mongo.data-advising.net:27017/?authSource=QuestionDB_dev&authMechanism=SCRAM-SHA-256&readPreference=primary&appname=MongoDB%20Compass&directConnection=true&ssl=false')
+client = MongoClient(os.environ['MONGO_URI'].replace('"', ''))
 db = client['Service_Exam_dev']
 question_collection = db['questions']
 
