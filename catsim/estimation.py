@@ -127,7 +127,7 @@ class HillClimbingEstimator(Estimator):
             if self._verbose:
                 print(('Bounds: ' + str(lower_bound) + ' ' + str(upper_bound)))
                 print(('Interval size: ' + str(intervals[1] - intervals[0])))
-
+            
             for ii in intervals:
                 self._evaluations += 1
                 ll = irt.log_likelihood(ii, response_vector, items[administered_items])

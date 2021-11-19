@@ -21,7 +21,6 @@ df.loc[df['level'] == 4.5, 'level'] = 4
 
 # ability bound == question difficult bound
 ability_bound = df.level.min(), df.level.max()
-print(ability_bound)
 
 # prepare 1PL item bank
 item_bank_1PL = generate_item_bank(df.shape[0], itemtype="1PL")
@@ -30,7 +29,7 @@ item_bank_1PL[:, 1] = df.level.values
 # prepare CAT class
 initializer = FixedPointInitializer(ability_bound[0])
 selector = MaxInfoGroupWithRandomSelector()
-estimator = HillClimbingEstimator(bounds=ability_bound, dodd=False)
+estimator = HillClimbingEstimator(bounds=ability_bound, dodd=False, verbose=False)
 # estimator = DifferentialEvolutionEstimator(bounds=ability_bound)
 # stopper = MaxItemStopper(max_items=)
 stopper = MinErrorStopper(0.58)
