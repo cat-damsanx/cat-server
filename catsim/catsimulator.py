@@ -15,8 +15,12 @@ from catsim.stopping import MaxItemStopper, MinErrorStopper
 
 df = pd.read_csv('data/question_data.csv')
 
+# set level 4.5 to 4 for selector
+df.loc[df['level'] == 4.5, 'level'] = 4
+
 # ability bound == question difficult bound
 ability_bound = df.level.min(), df.level.max()
+print(ability_bound)
 
 # prepare 1PL item bank
 item_bank_1PL = generate_item_bank(df.shape[0], itemtype="1PL")

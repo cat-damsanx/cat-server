@@ -12,6 +12,9 @@ from catsim.catsimulator import (
     get_question
 )
 from pprint import pprint
+import numpy as np
+import matplotlib.pyplot as plt
+import base64
 
 @app.route('/')
 def index():
@@ -76,3 +79,31 @@ def checking_stop():
     )
     is_stop = stopper.stop(**params)
     return make_response(make_data(dict(is_stop=is_stop)))
+
+
+@app.route('/cat-api/get-plot', methods=['POST'])
+@cross_origin()
+def get_plot():
+
+    data = request.get_json().get('data', None)
+
+    questionLevelPattern = np.array(data['questionLevelPattern'])
+    thetaPattern = np.array(data['thetaPattern'])
+    responsePattern = np.array(data['responsePattern'])
+
+    plt.figure(figsize=(13, 7))
+    x = np.arange(thetaPattern.shape[0])
+    color = np.append('black', np.where(responsePattern, 'blue', 'red'))
+    plt.plot(x[1:], thetaPattern[1:], label='Theta Pattern', ls='-.', color='orange', alpha=0.75)
+    plt.scatter(x[:-1], questionLevelPattern, label='Item Level', marker='^')
+    plt.scatter(x, thetaPattern, color=color, label='Estimated theta')
+    plt.xticks(x)
+    plt.xlabel('Time')
+    plt.legend(loc='best')
+    plt.savefig('cat.png')
+
+    with open('cat.png', 'rb') as img:
+        encoded = base64.b64encode(img.read())
+        decoded = encoded.decode()
+
+    return make_response(make_data(dict(b64Img=decoded)))
