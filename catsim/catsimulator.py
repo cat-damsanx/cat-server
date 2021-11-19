@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -13,7 +14,7 @@ from catsim.initialization import FixedPointInitializer
 from catsim.stopping import MaxItemStopper, MinErrorStopper
 
 
-df = pd.read_csv('data/question_data.csv')
+df = pd.read_csv(os.environ['QUESTION_DATA_PATH'])
 
 # set level 4.5 to 4 for selector
 df.loc[df['level'] == 4.5, 'level'] = 4
