@@ -1,4 +1,5 @@
 import os
+import redis
 from flask import Flask
 from flask_cors import CORS
 from pymongo import MongoClient
@@ -8,6 +9,8 @@ from pymongo import MongoClient
 
 app = Flask(__name__)
 cors = CORS(app)
+redis_client = redis.from_url(os.environ['REDIS_URL'])
+
 client = MongoClient(os.environ['MONGO_URI'].replace('"', ''))
 db = client['Service_Exam_dev']
 question_collection = db['questions']

@@ -1,5 +1,9 @@
+from app import redis_client
+from app.utils import get_cb_data
+from pprint import pprint
 from abc import abstractmethod
 from warnings import warn
+import pandas as pd
 
 import numpy as np
 from scipy.integrate import quad
@@ -46,12 +50,14 @@ class MaxInfoSelector(Selector):
             administered_items = self.simulator.administered_items[index]
             est_theta = self.simulator.latest_estimations[index]
 
-        valid_indexes = [x for x in range(items.shape[0]) if x not in administered_items]
+        valid_indexes = [x for x in range(
+            items.shape[0]) if x not in administered_items]
         inf_values = irt.inf_hpc(est_theta, items[valid_indexes])
 
         valid_indexes = [
             item_index for (inf_value, item_index) in
-            sorted(zip(inf_values, valid_indexes), key=lambda pair: pair[0], reverse=True)
+            sorted(zip(inf_values, valid_indexes),
+                   key=lambda pair: pair[0], reverse=True)
         ]
 
         if len(valid_indexes) == 0:
@@ -99,20 +105,56 @@ class MaxInfoGroupWithRandomSelector(Selector):
             administered_items = self.simulator.administered_items[index]
             est_theta = self.simulator.latest_estimations[index]
 
-        valid_indexes = [x for x in range(items.shape[0]) if x not in administered_items]
-        inf_values = irt.inf_hpc(est_theta, items[valid_indexes])
+        exam_id = kwargs.get('exam_id', None)
+        cb_names = kwargs.get('cb_names', None)
+        cb_props = kwargs.get('cb_props', None)
+        cb_groups = kwargs.get('cb_groups', None)
+
+        # select the one that has minimize value
+        cb_data = get_cb_data(exam_id)
+        tot_questions = len(administered_items) or 1  # zero divisions
+        mx_props = 0
+        for k, props in zip(cb_names, cb_props):
+            # desired proportions - current proportions
+            cb_data[k] = props - cb_data[k] / tot_questions
+            mx_props = max(mx_props, cb_data[k])
+
+        category_props = np.array(list(cb_data.values()))
+        selected_category = cb_names[category_props == mx_props]
+
+        items = items[np.isin(cb_groups, selected_category)]
+
+        items_df = pd.DataFrame(items)
+        valid_indexes = items_df.index.isin(administered_items)
+        items_df = items_df[~valid_indexes]
+        selected_items = items_df.values
+
+        # update items bank
+        # lỗi chỗ này, phải lưu index cũ rồi query
+        print("Item bank size:", items.shape[0])
+
+        # valid_indexes = [x for x in range(items.shape[0]) if x not in administered_items]
+        # selected_items = items[np.isin(items[:, 0], valid_indexes)]
+        inf_values = irt.inf_hpc(est_theta, selected_items)
+        considered_index = selected_items[:, 0].astype('int')
         # print out that list
-        inf_sorted = np.array(sorted(inf_values, reverse=True))
-        nums_equally = (inf_sorted == inf_sorted[0]).sum()
-        valid_indexes = [
+        inf_max = np.max(inf_values)
+        nums_equally = (inf_values == inf_max).sum()
+        valid_indexes = np.array([
             item_index for (inf_value, item_index) in
-            sorted(zip(inf_values, valid_indexes), key=lambda pair: pair[0], reverse=True)
-        ][:nums_equally] # select that all value equal to maximum information value 
+            sorted(zip(inf_values, considered_index),
+                   key=lambda pair: pair[0], reverse=True)
+        ])[:nums_equally]  # select that all value equal to maximum information value
+
         print("Number of item that equal to maximum:", nums_equally)
 
-        if len(valid_indexes) == 0:
+        if valid_indexes.shape[0] == 0:
             warn('There are no more items to be applied.')
             return None
+
+        # tf idf here
+        
+
 
         return np.random.choice(valid_indexes)
 
@@ -164,7 +206,8 @@ class LinearSelector(FiniteSelector):
             )
             return None
 
-        selected_item = [x for x in self._indexes if x not in administered_items][0]
+        selected_item = [
+            x for x in self._indexes if x not in administered_items][0]
 
         return selected_item
 
@@ -197,7 +240,7 @@ class RandomSelector(Selector):
         :returns: index of the next item to be applied or `None` if there are no more items in the item bank.
         """
         if (index is None or
-            self.simulator is None) and (items is None or administered_items is None):
+                self.simulator is None) and (items is None or administered_items is None):
             raise ValueError(
                 'Either pass an index for the simulator or all of the other optional parameters to use this component independently.'
             )
@@ -344,7 +387,8 @@ class ClusterSelector(Selector):
 
                 # get the indexes of all items in the same cluster as the current item
                 items_in_cluster = np.nonzero(
-                    [x == self._clusters[max_info_item] for x in self._clusters]
+                    [x == self._clusters[max_info_item]
+                        for x in self._clusters]
                 )[0]
 
                 # if all the items in the current cluster have already been administered (it happens, theoretically),
@@ -367,7 +411,8 @@ class ClusterSelector(Selector):
             # calculates the cluster information, depending on the method
             # selected
             if self._method == 'cluster_info':
-                cluster_infos = ClusterSelector.sum_cluster_infos(est_theta, items, self._clusters)
+                cluster_infos = ClusterSelector.sum_cluster_infos(
+                    est_theta, items, self._clusters)
             else:
                 cluster_infos = ClusterSelector.weighted_cluster_infos(
                     est_theta, items, self._clusters
@@ -389,7 +434,8 @@ class ClusterSelector(Selector):
 
             # walks through the sorted clusters in order
             for i in range(len(sorted_clusters)):
-                valid_indexes = np.nonzero([r == sorted_clusters[i] for r in items[:, 4]])[0]
+                valid_indexes = np.nonzero(
+                    [r == sorted_clusters[i] for r in items[:, 4]])[0]
 
                 # checks if at least one item from this cluster has not
                 # been administered to this examinee yet
@@ -413,7 +459,7 @@ class ClusterSelector(Selector):
         valid_indexes = [
             index
             for index in np.nonzero([cluster == selected_cluster
-                                        for cluster in self._clusters])[0]
+                                     for cluster in self._clusters])[0]
             if index not in administered_items
         ]
 
@@ -428,16 +474,19 @@ class ClusterSelector(Selector):
         if len(valid_indexes_low_r) > 0:
             # return the item with maximum information from the ones available
             inf_values = irt.inf_hpc(est_theta, items[valid_indexes_low_r])
-            selected_item = valid_indexes_low_r[np.nonzero(inf_values == max(inf_values))[0][0]]
+            selected_item = valid_indexes_low_r[np.nonzero(
+                inf_values == max(inf_values))[0][0]]
 
         # if all items in the selected cluster have exceed their r values,
         # select the one with smallest r, regardless of information
         else:
             if self._r_control == 'passive':
                 inf_values = irt.inf_hpc(est_theta, items[valid_indexes])
-                selected_item = valid_indexes[np.nonzero(inf_values == max(inf_values))[0][0]]
+                selected_item = valid_indexes[np.nonzero(
+                    inf_values == max(inf_values))[0][0]]
             else:
-                selected_item = valid_indexes[items[:, 4].index(min(items[:, 4]))]
+                selected_item = valid_indexes[items[:, 4].index(
+                    min(items[:, 4]))]
 
         return selected_item
 
@@ -456,7 +505,8 @@ class ClusterSelector(Selector):
             cluster_indexes = np.nonzero([c == cluster for c in clusters])[0]
 
             for item in items[cluster_indexes]:
-                cluster_infos[cluster] += irt.inf(theta, item[0], item[1], item[2], item[3])
+                cluster_infos[cluster] += irt.inf(theta,
+                                                  item[0], item[1], item[2], item[3])
 
         return cluster_infos
 
@@ -471,7 +521,8 @@ class ClusterSelector(Selector):
         :param clusters: a list containing item cluster memberships, represented by integers
         :returns: list containing the sum of item information values for each cluster,
                   divided by the number of items in each cluster"""
-        cluster_infos = ClusterSelector.sum_cluster_infos(theta, items, clusters)
+        cluster_infos = ClusterSelector.sum_cluster_infos(
+            theta, items, clusters)
         count = np.bincount(clusters)
 
         for i in range(len(cluster_infos)):
@@ -510,7 +561,8 @@ class ClusterSelector(Selector):
                   Lines are clusters, columns are parameters."""
         averages = ClusterSelector.sum_cluster_params(items, c)
 
-        occurrences = np.bincount(np.delete(c, np.where(c == -1)).astype(np.int64))
+        occurrences = np.bincount(
+            np.delete(c, np.where(c == -1)).astype(np.int64))
 
         for counter, i in enumerate(occurrences):
             averages[counter, 0] /= i
@@ -554,7 +606,7 @@ class StratifiedSelector(FiniteSelector):
         :returns: index of the next item to be applied or `None` if there are no more strata to get items from.
         """
         if (index is None or
-            self.simulator is None) and (items is None or administered_items is None):
+                self.simulator is None) and (items is None or administered_items is None):
             raise ValueError(
                 'Either pass an index for the simulator or all of the other optional parameters to use this component independently.'
             )
@@ -564,7 +616,8 @@ class StratifiedSelector(FiniteSelector):
             administered_items = self.simulator.administered_items[index]
 
         # select the item in the correct layer, according to the point in the test the examinee is
-        slices = np.linspace(0, items.shape[0], self._test_size, endpoint=False, dtype='i')
+        slices = np.linspace(
+            0, items.shape[0], self._test_size, endpoint=False, dtype='i')
 
         try:
             pointer = slices[len(administered_items)]
@@ -574,7 +627,8 @@ class StratifiedSelector(FiniteSelector):
         except IndexError:
             warn(
                 "{0}: test size is larger than was informed to the selector\nLength of administered items:\t{0}\nTotal length of the test:\t{1}\nNumber of slices:\t{2}".
-                format(self, len(administered_items), self._test_size, len(slices))
+                format(self, len(administered_items),
+                       self._test_size, len(slices))
             )
             return None
 

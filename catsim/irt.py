@@ -36,9 +36,10 @@ def icc(theta: float, a: float, b: float, c: float = 0, d: float = 1) -> float:
 def _split_params(items: np.ndarray):
     """Split the item matrix parameters into columns.
 
+    item[0] is index 
     :param items: an item matrix with four columns representing four parameters.
     :returns: a 4-tuple with each column in a different slot."""
-    return items[:, 0], items[:, 1], items[:, 2], items[:, 3]
+    return items[:, 1], items[:, 2], items[:, 3], items[:, 4]
 
 
 def icc_hpc(theta: float, items: np.ndarray) -> np.ndarray:

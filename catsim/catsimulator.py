@@ -19,12 +19,25 @@ df = pd.read_csv(os.environ['QUESTION_DATA_PATH'])
 # set level 4.5 to 4 for selector
 df.loc[df['level'] == 4.5, 'level'] = 4
 
+criterion = 'chapter' # hiện tại đang config content balancing theo chapter
+
+# df = df.sample(10000).reset_index(drop=True)
+# print(df)
+
+cb_names = df[criterion].unique() # những category duy nhất
+
+cb_groups = df[criterion].values # category tương ứng của từng hàng
+cb_props = np.repeat(1 / cb_names.shape[0], cb_names.shape[0]) # tỉ lệ cho các category
+
 # ability bound == question difficult bound
 ability_bound = df.level.min(), df.level.max()
 
 # prepare 1PL item bank
 item_bank_1PL = generate_item_bank(df.shape[0], itemtype="1PL")
 item_bank_1PL[:, 1] = df.level.values
+
+index_col = np.arange(df.shape[0]).reshape(-1, 1)
+item_bank_1PL = np.concatenate((index_col, item_bank_1PL), axis=1)
 
 # prepare CAT class
 initializer = FixedPointInitializer(ability_bound[0])
