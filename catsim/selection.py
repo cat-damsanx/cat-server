@@ -113,25 +113,24 @@ class MaxInfoGroupWithRandomSelector(Selector):
         # select the one that has minimize value
         cb_data = get_cb_data(exam_id)
         tot_questions = len(administered_items) or 1  # zero divisions
-        mx_props = 0
+        mx_props = float('-inf')
         for k, props in zip(cb_names, cb_props):
             # desired proportions - current proportions
             cb_data[k] = props - cb_data[k] / tot_questions
             mx_props = max(mx_props, cb_data[k])
-
         category_props = np.array(list(cb_data.values()))
         selected_category = cb_names[category_props == mx_props]
 
-        items = items[np.isin(cb_groups, selected_category)]
+        queried_items = items[np.isin(cb_groups, selected_category)]
 
-        items_df = pd.DataFrame(items)
+        items_df = pd.DataFrame(queried_items)
         valid_indexes = items_df.index.isin(administered_items)
         items_df = items_df[~valid_indexes]
         selected_items = items_df.values
 
         # update items bank
         # lỗi chỗ này, phải lưu index cũ rồi query
-        print("Item bank size:", items.shape[0])
+        print("Item bank size:", queried_items.shape[0])
 
         # valid_indexes = [x for x in range(items.shape[0]) if x not in administered_items]
         # selected_items = items[np.isin(items[:, 0], valid_indexes)]
@@ -153,7 +152,24 @@ class MaxInfoGroupWithRandomSelector(Selector):
             return None
 
         # tf idf here
-        
+        if not administered_items:
+            # câu hỏi đầu tiên
+            return np.random.choice(valid_indexes)
+
+        # def prepare_question_for_tfidf(question_idx) -> dict:
+        #     question_code = get_question(question_idx)
+        #     question_contents = list(question_collection.find({'code': question_code}, {
+        #                             '_id': 0, 'question_contents': 1}))
+        #     print(question_contents)
+        #     question_contents = question_contents[0].get('question_contents', [])
+        #     text = ' '.join([foo['content']
+        #                     for foo in question_contents if foo['variety'] == 'TEXT'])
+        #     return text
+
+        # last_question_idx = administered_items[-1]
+
+        # list_questions = list(map(lambda idx: prepare_question_for_tfidf(idx), valid_indexes))
+        # print(list_questions)
 
 
         return np.random.choice(valid_indexes)
