@@ -2,7 +2,10 @@ import os
 import redis
 from flask import Flask
 from flask_cors import CORS
+import pickle
+import numpy as np
 from pymongo import MongoClient
+from sklearn.feature_extraction.text import TfidfVectorizer
 # import firebase_admin
 # from firebase_admin import credentials
 # from firebase_admin import storage
@@ -21,6 +24,14 @@ question_collection = db['questions']
 # })
 
 # bucket = storage.bucket('cat_img')
+
+# tfidf
+vocab = pickle.load(open('data/tfidf/vocab.pkl', 'rb'))
+idf = np.load('data/tfidf/idf.npz')['idf']
+tfidf = TfidfVectorizer()
+tfidf.vocabulary_ = vocab
+tfidf.idf_ = idf
+
 
 status_code = dict(
     SUCCESS=1,

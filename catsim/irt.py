@@ -39,7 +39,8 @@ def _split_params(items: np.ndarray):
     item[0] is index 
     :param items: an item matrix with four columns representing four parameters.
     :returns: a 4-tuple with each column in a different slot."""
-    return items[:, 1], items[:, 2], items[:, 3], items[:, 4]
+    mini_items = items[:, 1:5].astype('float')
+    return mini_items[:, 0], mini_items[:, 1], mini_items[:, 2], mini_items[:, 3]
 
 
 def icc_hpc(theta: float, items: np.ndarray) -> np.ndarray:
@@ -50,7 +51,6 @@ def icc_hpc(theta: float, items: np.ndarray) -> np.ndarray:
     :param items: array containing the four item parameters.
     :returns: an array of all item characteristic functions, given the current ``theta``"""
     a, b, c, d = _split_params(items)
-
     # just the P(theta|a, b, c, d) of 4PL models
     return numexpr.evaluate('c + ((d - c) / (1 + exp((-a * (theta - b)))))')
 

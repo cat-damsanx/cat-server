@@ -39,6 +39,10 @@ item_bank_1PL[:, 1] = df.level.values
 index_col = np.arange(df.shape[0]).reshape(-1, 1)
 item_bank_1PL = np.concatenate((index_col, item_bank_1PL), axis=1)
 
+# question code is the last column
+code = df['code'].values.reshape(-1, 1)
+item_bank_1PL = np.concatenate((item_bank_1PL, code), axis=1)
+
 # prepare CAT class
 initializer = FixedPointInitializer(ability_bound[0])
 selector = MaxInfoGroupWithRandomSelector()

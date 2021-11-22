@@ -1,16 +1,18 @@
-from app import redis_client
+from app import redis_client, question_collection, tfidf
 from app.utils import get_cb_data
 from pprint import pprint
 from abc import abstractmethod
 from warnings import warn
 import pandas as pd
-
+import pickle
+import time
 import numpy as np
 from scipy.integrate import quad
 import numexpr as ne
-
+import concurrent.futures as cf
 from catsim import irt
 from catsim.simulation import Selector, FiniteSelector
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 class MaxInfoSelector(Selector):
@@ -156,21 +158,44 @@ class MaxInfoGroupWithRandomSelector(Selector):
             # câu hỏi đầu tiên
             return np.random.choice(valid_indexes)
 
-        # def prepare_question_for_tfidf(question_idx) -> dict:
-        #     question_code = get_question(question_idx)
-        #     question_contents = list(question_collection.find({'code': question_code}, {
-        #                             '_id': 0, 'question_contents': 1}))
-        #     print(question_contents)
-        #     question_contents = question_contents[0].get('question_contents', [])
-        #     text = ' '.join([foo['content']
-        #                     for foo in question_contents if foo['variety'] == 'TEXT'])
-        #     return text
+        def prepare_question_for_tfidf(question_idx) -> dict:
+            question_code = items[question_idx, -1] # last column is question code column
+            # start_time = time.perf_counter()
+            question_contents = list(question_collection.find({'code': question_code}, {'_id': 0, 'question_contents': 1}))
+            # end_time = time.perf_counter()
+            # print("Get one question {}".format(end_time - start_time))
+            question_contents = question_contents[0].get('question_contents', [])
+            text = ' '.join([foo['content'] for foo in question_contents if foo['variety'] == 'TEXT'])
+            
+            return text
 
-        # last_question_idx = administered_items[-1]
+        def prepare_text(question):
+            text = ' '.join([foo['content'] for foo in question['question_contents'] if foo['variety'] == 'TEXT'])
+            return text
 
-        # list_questions = list(map(lambda idx: prepare_question_for_tfidf(idx), valid_indexes))
-        # print(list_questions)
+        # last questions
+        last_question_idx = administered_items[-1]
+        last_question = [prepare_question_for_tfidf(last_question_idx)]
+        last_question_transformed = tfidf.transform(last_question)
+        
+        # get list question data
+        list_question_code = items[valid_indexes, -1].tolist()
+        list_questions = question_collection.find({'code': {'$in': list_question_code}}, {'_id': 0, 'question_contents': 1})
 
+        print("Executing things:")
+        with cf.ThreadPoolExecutor() as executor:
+            list_questions = executor.map(prepare_text, list_questions)
+            list_questions = list(list_questions)
+        print("Done")
+
+        question_transformed = tfidf.transform(list_questions)
+        distance = cosine_similarity(last_question_transformed, question_transformed).reshape(-1, 1)
+
+        valid_indexes = np.array([
+            index for dist_val, index in sorted(zip(distance, valid_indexes), key=lambda x: x[0], reverse=True)
+        ])
+
+        valid_indexes = valid_indexes[:10]
 
         return np.random.choice(valid_indexes)
 
