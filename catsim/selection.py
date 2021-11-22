@@ -192,7 +192,8 @@ class MaxInfoGroupWithRandomSelector(Selector):
         distance = cosine_similarity(last_question_transformed, question_transformed).reshape(-1, 1)
 
         valid_indexes = np.array([
-            index for dist_val, index in sorted(zip(distance, valid_indexes), key=lambda x: x[0], reverse=True)
+            index for dist_val, index in 
+            sorted(zip(distance, valid_indexes), key=lambda x: x[0], reverse=False)
         ])
 
         valid_indexes = valid_indexes[:10]
